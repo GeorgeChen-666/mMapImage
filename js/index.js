@@ -21,7 +21,7 @@
     const drawing = viewer.initDrawingPlugin({ storageKey: `osd_strokes_${cat}` });
 
     const mapContainer = document.getElementById('zoomMap');
-    const btnStyle = `position:absolute;bottom:10px;z-index:200;padding:6px 12px;color:white;border:1px solid #888;border-radius:4px;cursor:pointer;font-size:14px;`;
+    const btnStyle = `position:absolute;bottom:calc(10px + env(safe-area-inset-bottom));z-index:200;padding:6px 12px;color:white;border:1px solid #888;border-radius:4px;cursor:pointer;font-size:14px;`;
 
     const createBtn = (text, left, bg, hidden = false) => {
       const btn = document.createElement('button');
@@ -53,7 +53,7 @@
     let currentSwatch = null;
 
     const colorPanel = document.createElement('div');
-    colorPanel.style.cssText = `position:absolute;z-index:201;bottom:52px;left:260px;background:rgba(30,30,30,0.95);border:1px solid #888;border-radius:6px;padding:8px;display:none;gap:6px;flex-wrap:wrap;width:162px;`;
+    colorPanel.style.cssText = `position:absolute;z-index:201;bottom:calc(52px + env(safe-area-inset-bottom));left:260px;background:rgba(30,30,30,0.95);border:1px solid #888;border-radius:6px;padding:8px;display:none;gap:6px;flex-wrap:wrap;width:162px;`;
     mapContainer.appendChild(colorPanel);
 
     COLORS.forEach(color => {
