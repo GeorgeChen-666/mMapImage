@@ -1,0 +1,99 @@
+<html lang="zh">
+
+<head>
+    <title>小城大案 在线地图 - Micro Macro Online Map</title>
+    <meta name="keywords" content="小城大案,MicroMacro,地图">
+    <meta name="description" content="小城大案在线地图，闲鱼搜妙喵桌游。">
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="./libs/openseadragon/openseadragon.min.js"></script>
+    <script src="./js/osd-drawing-plugin.js"></script>
+<!--    <script src="./libs/openseadragon-annotations.js"></script>-->
+    <!-- 移除 micromodal -->
+<!--    <link rel="stylesheet" href="./css/modal.css" />-->
+    <style>
+        body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -o-user-select: none;
+            user-select: none;
+        }
+        #zoomMap {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+
+        #zoomMap img {
+            width: 64px;
+        }
+
+        .modal__content {
+            margin: 1rem 0;
+        }
+
+        .modal__content>p {
+            display: flex;
+            align-items: center;
+            margin: 3px;
+        }
+        .modal__footer {
+            display: flex;
+            justify-content: space-around;
+        }
+        .modal__footer button {
+            width: 120px;
+        }
+        .modal__footer button:disabled {
+            color: #ccc;
+        }
+
+        /* 原生 dialog 样式 */
+        dialog::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+        }
+        dialog {
+            border: none;
+            border-radius: 8px;
+            max-width: 90vw;
+            padding: 1.5rem;
+        }
+    </style>
+</head>
+
+<body onselectstart="return false;" unselectable="on">
+<div id="zoomMap"></div>
+<dialog id="modal-1">
+    <div>
+        <header>
+            <h2>小城大案在线地图</h2>
+        </header>
+        <div class="modal__content">
+            <p>操作说明：</p>
+            <p><img src="./libs/openseadragon/images/zoomin_rest.png" /> ： 放大地图</p>
+            <p><img src="./libs/openseadragon/images/zoomout_rest.png" /> ： 缩小地图</p>
+            <p><img src="./libs/openseadragon/images/home_rest.png" /> ： 默认尺寸</p>
+<!--            <p><img src="./img/move_rest.png" /> ： 移动模式</p>-->
+<!--            <p><img src="./img/draw_rest.png" /> ： 画笔模式</p>-->
+<!--            <p><img src="./img/undo_rest.png" /> ： 撤销画笔</p>-->
+            <p>移动地图：鼠标拖拽，手指按住地图后滑动。</p>
+            <p>放缩地图：鼠标滚轮，双击地图，双指操作</p>
+<!--            <p>开发维护：妙喵桌游@闲鱼 <img src="./img/xianyu.png" width="32" /> </p>-->
+        </div>
+        <footer class="modal__footer">
+            <button id="btnGoTo1">罪恶都市</button>
+            <button id="btnGoTo2">满堂红</button>
+        </footer>
+    </div>
+</dialog>
+
+<script>
+  const modal = document.getElementById('modal-1');
+  modal.showModal();
+
+</script>
+<script src="./js/index.js"></script>
+</body>
+
+</html>
