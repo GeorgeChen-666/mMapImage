@@ -25,10 +25,9 @@
     let isDrawing = false;
     let currentPath = null;
     let currentPoints = [];
-    let currentColor = '#ff3300';
-    // strokes: [{points: [{x,y},...], color}]
+    let currentColor = '';
     let strokes = [];
-    let undoStack = []; // 记录撤销历史
+    let undoStack = [];
 
     // === 持久化 ===
     const saveToStorage = () => {
@@ -77,13 +76,10 @@
 
     // === 更新按钮状态 ===
     const updateButtonStates = () => {
-      const canUndo = strokes.length > 0;
-      const canRedraw = undoStack.length > 0;
-
       if (window._drawingPluginCallbacks) {
-        window._drawingPluginCallbacks.updateUndoButton?.(canUndo);
-        window._drawingPluginCallbacks.updateRedrawButton?.(canRedraw);
-        window._drawingPluginCallbacks.updateClearButton?.(canUndo || canRedraw);
+        window._drawingPluginCallbacks.updateUndoButton?.();
+        window._drawingPluginCallbacks.updateRedrawButton?.();
+        window._drawingPluginCallbacks.updateClearButton?.();
       }
     };
 
@@ -128,11 +124,10 @@
       if (isDrawing && currentPoints.length >= 2) {
         const stroke = { points: currentPoints, color: currentColor };
         strokes.push(stroke);
-        undoStack = []; // 新的笔画后清空重做栈
+        undoStack = [];
         saveToStorage();
         updateButtonStates();
       } else if (isDrawing && currentPath) {
-        // 点太少，移除无效路径
         svg.removeChild(currentPath);
       }
       isDrawing = false;
@@ -158,12 +153,9 @@
       undo() {
         if (strokes.length === 0) return;
         const removedStroke = strokes.pop();
-        undoStack.push(removedStroke); // 放入撤销栈
-
-        // 移除最后一个 path
+        undoStack.push(removedStroke);
         const paths = svg.querySelectorAll('path');
         if (paths.length > 0) svg.removeChild(paths[paths.length - 1]);
-
         saveToStorage();
         updateButtonStates();
       },
@@ -171,10 +163,7 @@
         if (undoStack.length === 0) return;
         const restoredStroke = undoStack.pop();
         strokes.push(restoredStroke);
-
-        // 重新渲染被恢复的笔画
         renderStroke(restoredStroke);
-
         saveToStorage();
         updateButtonStates();
       },
