@@ -14,6 +14,12 @@
     <!-- 移除 micromodal -->
 <!--    <link rel="stylesheet" href="./css/modal.css" />-->
     <style>
+        html, body {
+            height: 100%;
+            height: -webkit-fill-available;
+            margin: 0;
+            overflow: hidden;
+        }
         body {
             -webkit-user-select: none;
             -moz-user-select: none;
@@ -23,7 +29,7 @@
         #zoomMap {
             position: relative;
             width: 100%;
-            height: 100vh;
+            height: -webkit-fill-available;
         }
         #zoomMap > div.openseadragon-container > div:nth-child(5) > div > div {
             display: flex!important;
