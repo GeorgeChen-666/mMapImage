@@ -7,70 +7,10 @@
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./style.css">
     <script src="./libs/openseadragon/openseadragon.min.js"></script>
     <script src="./js/osd-drawing-plugin.js"></script>
     <script src="./js/drawing-controls.js"></script>
-<!--    <script src="./libs/openseadragon-annotations.js"></script>-->
-    <!-- 移除 micromodal -->
-<!--    <link rel="stylesheet" href="./css/modal.css" />-->
-    <style>
-        html, body {
-            height: 100%;
-            height: -webkit-fill-available;
-            margin: 0;
-            overflow: hidden;
-        }
-        body {
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -o-user-select: none;
-            user-select: none;
-        }
-        #zoomMap {
-            position: relative;
-            width: 100%;
-            height: -webkit-fill-available;
-        }
-        #zoomMap > div.openseadragon-container > div:nth-child(5) > div > div {
-            display: flex!important;
-            align-items: center;
-        }
-
-        #zoomMap img {
-            width: 64px;
-        }
-
-        .modal__content {
-            margin: 1rem 0;
-        }
-
-        .modal__content>p {
-            display: flex;
-            align-items: center;
-            margin: 3px;
-        }
-        .modal__footer {
-            display: flex;
-            justify-content: space-around;
-        }
-        .modal__footer button {
-            width: 120px;
-        }
-        .modal__footer button:disabled {
-            color: #ccc;
-        }
-
-        /* 原生 dialog 样式 */
-        dialog::backdrop {
-            background: rgba(0, 0, 0, 0.5);
-        }
-        dialog {
-            border: none;
-            border-radius: 8px;
-            max-width: 90vw;
-            padding: 1.5rem;
-        }
-    </style>
 </head>
 
 <body onselectstart="return false;" unselectable="on">
@@ -82,19 +22,46 @@
         </header>
         <div class="modal__content">
             <p>操作说明：</p>
-            <p><img src="./libs/openseadragon/images/zoomin_rest.png" /> ： 放大地图</p>
-            <p><img src="./libs/openseadragon/images/zoomout_rest.png" /> ： 缩小地图</p>
-            <p><img src="./libs/openseadragon/images/home_rest.png" /> ： 默认尺寸</p>
-<!--            <p><img src="./img/move_rest.png" /> ： 移动模式</p>-->
-<!--            <p><img src="./img/draw_rest.png" /> ： 画笔模式</p>-->
-<!--            <p><img src="./img/undo_rest.png" /> ： 撤销画笔</p>-->
+            <table>
+                <tbody>
+                <tr>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./libs/openseadragon/images/zoomin_rest.png" /><span>： 放大地图</span></div></td>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./imgs/pen_rest.png" /><span>： 画笔模式</span></div></td>
+                </tr>
+                <tr>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./libs/openseadragon/images/zoomout_rest.png" /><span>： 缩小地图</span></div></td>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./imgs/rl_rest.png" /><span>： 撤销画笔</span></div></td>
+                </tr>
+                <tr>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./libs/openseadragon/images/home_rest.png" /><span>： 默认尺寸</span></div></td>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./imgs/rr_rest.png" /><span>： 重绘画笔</span></div></td>
+                </tr>
+                <tr>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./imgs/move_rest.png" /><span>： 移动模式</span></div></td>
+                    <td class="help-cell"><div class="help-item"><img width="35" src="./imgs/trash_rest.png" /><span>： 清除所有绘画</span></div></td>
+                </tr>
+                </tbody>
+            </table>
             <p>移动地图：鼠标拖拽，手指按住地图后滑动。</p>
             <p>放缩地图：鼠标滚轮，双击地图，双指操作</p>
-<!--            <p>开发维护：妙喵桌游@闲鱼 <img src="./img/xianyu.png" width="32" /> </p>-->
+            <p>切换模式：shift键 &nbsp;&nbsp; 退出编辑：esc键、鼠标右键</p>
+            <p>开发维护：妙喵桌游@闲鱼 <img src="./imgs/xianyu.png" width="32" /> </p>
         </div>
         <footer class="modal__footer">
-            <button id="btnGoTo1">罪恶都市</button>
-            <button id="btnGoTo2">满堂红</button>
+            <table>
+                <tbody>
+                <tr>
+                    <td><button id="btnGoTo1">罪恶都市</button></td>
+                    <td><button id="btnGoTo2">满堂红</button></td>
+                </tr>
+                <tr>
+                    <td><button id="btnGoTo3">???</button></td>
+                    <td><button id="btnGoTo4">???</button></td>
+                </tr>
+                </tbody>
+            </table>
+
+
         </footer>
     </div>
 </dialog>

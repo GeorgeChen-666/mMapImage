@@ -2,7 +2,7 @@
 (function (OpenSeadragon) {
   if (!OpenSeadragon) throw new Error('OpenSeadragon is required');
 
-  const STROKE_WIDTH = 1.5;
+  const STROKE_WIDTH = 2;
   const svgNS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'osd_drawing_strokes';
 
@@ -31,18 +31,14 @@
 
     // === 持久化 ===
     const saveToStorage = () => {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(strokes));
-      } catch (e) {}
+      try { localStorage.setItem(storageKey, JSON.stringify(strokes)); } catch (e) {}
     };
 
     const loadFromStorage = () => {
       try {
         const data = localStorage.getItem(storageKey);
         return data ? JSON.parse(data) : [];
-      } catch (e) {
-        return [];
-      }
+      } catch (e) { return []; }
     };
 
     const renderStroke = (stroke) => {
@@ -87,19 +83,28 @@
     viewer.addHandler('open', () => {
       const bounds = viewer.world.getHomeBounds();
       viewer.addOverlay(svg, new OpenSeadragon.Rect(bounds.x, bounds.y, bounds.width, bounds.height));
-
       strokes = loadFromStorage();
       undoStack = [];
       strokes.forEach(renderStroke);
       updateButtonStates();
     });
 
+    // === 事件辅助 ===
+    const getPoint = (e) => {
+      if (e.touches && e.touches.length > 0) {
+        return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
+      }
+      return { clientX: e.clientX, clientY: e.clientY };
+    };
+
     // === 绘图事件 ===
-    svg.addEventListener('mousedown', (e) => {
+    const startDrawing = (e) => {
       if (!isDrawMode) return;
+      e.preventDefault();
       isDrawing = true;
       currentPoints = [];
-      const p = toSVGCoords(e.clientX, e.clientY);
+      const { clientX, clientY } = getPoint(e);
+      const p = toSVGCoords(clientX, clientY);
       currentPoints.push(p);
 
       currentPath = document.createElementNS(svgNS, 'path');
@@ -110,15 +115,17 @@
       currentPath.setAttribute('stroke-linejoin', 'round');
       currentPath.setAttribute('vector-effect', 'non-scaling-stroke');
       svg.appendChild(currentPath);
-    });
+    };
 
-    svg.addEventListener('mousemove', (e) => {
+    const moveDrawing = (e) => {
       if (!isDrawing || !currentPath) return;
-      const p = toSVGCoords(e.clientX, e.clientY);
+      e.preventDefault();
+      const { clientX, clientY } = getPoint(e);
+      const p = toSVGCoords(clientX, clientY);
       currentPoints.push(p);
       const d = currentPoints.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x},${pt.y}`).join(' ');
       currentPath.setAttribute('d', d);
-    });
+    };
 
     const stopDrawing = () => {
       if (isDrawing && currentPoints.length >= 2) {
@@ -134,22 +141,29 @@
       currentPath = null;
     };
 
-    svg.addEventListener('mouseup', stopDrawing);
+    // mouse
+    svg.addEventListener('mousedown',  startDrawing);
+    svg.addEventListener('mousemove',  moveDrawing);
+    svg.addEventListener('mouseup',    stopDrawing);
     svg.addEventListener('mouseleave', stopDrawing);
+
+    // touch
+    svg.addEventListener('touchstart',  startDrawing, { passive: false });
+    svg.addEventListener('touchmove',   moveDrawing,  { passive: false });
+    svg.addEventListener('touchend',    stopDrawing);
+    svg.addEventListener('touchcancel', stopDrawing);
 
     // === 公开 API ===
     const plugin = {
       setMode(drawMode) {
         isDrawMode = drawMode;
         viewer.setMouseNavEnabled(!isDrawMode);
+        viewer.gestureSettingsTouch.dragToPan   = !drawMode;
+        viewer.gestureSettingsTouch.pinchToZoom = !drawMode;
         svg.style.pointerEvents = isDrawMode ? 'auto' : 'none';
       },
-      setColor(color) {
-        currentColor = color;
-      },
-      getColor() {
-        return currentColor;
-      },
+      setColor(color) { currentColor = color; },
+      getColor() { return currentColor; },
       undo() {
         if (strokes.length === 0) return;
         const removedStroke = strokes.pop();
@@ -174,15 +188,9 @@
         saveToStorage();
         updateButtonStates();
       },
-      isInDrawMode() {
-        return isDrawMode;
-      },
-      canUndo() {
-        return strokes.length > 0;
-      },
-      canRedraw() {
-        return undoStack.length > 0;
-      }
+      isInDrawMode() { return isDrawMode; },
+      canUndo()   { return strokes.length > 0; },
+      canRedraw() { return undoStack.length > 0; }
     };
 
     viewer.drawingPlugin = plugin;

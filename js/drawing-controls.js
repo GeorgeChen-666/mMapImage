@@ -1,71 +1,33 @@
 // js/drawing-controls.js
 const DrawingControls = (() => {
-  const prefixUrl = './libs/openseadragon/images/';
-  const states = ['rest', 'grouphover', 'hover', 'pressed'];
+  const imgPrefix = './imgs/';
 
-  const preloadImages = () => Promise.all(
-    states.map(s => new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(img);
-      img.src = `${prefixUrl}button_${s}.png`;
-    }))
-  );
-
-  const makeIcons = (imgMap, text) => {
-    const urls = {};
-    states.forEach(state => {
-      const canvas = document.createElement('canvas');
-      canvas.width  = imgMap[state].naturalWidth  || 34;
-      canvas.height = imgMap[state].naturalHeight || 34;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(imgMap[state], 0, 0);
-      ctx.fillStyle = '#2e2e2e';
-      ctx.font = `bold ${Math.floor(canvas.height * 0.55)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-      urls[state] = canvas.toDataURL();
-    });
-    return urls;
+  const imgSrcs = {
+    move:  { rest: 'move_rest.png',  grouphover: 'move_grouphover.png',  hover: 'move_hover.png',  pressed: 'move_pressed.png'  },
+    pen:   { rest: 'pen_rest.png',   grouphover: 'pen_grouphover.png',   hover: 'pen_hover.png',   pressed: 'pen_pressed.png'   },
+    rl:    { rest: 'rl_rest.png',    grouphover: 'rl_grouphover.png',    hover: 'rl_hover.png',    pressed: 'rl_pressed.png'    },
+    rr:    { rest: 'rr_rest.png',    grouphover: 'rr_grouphover.png',    hover: 'rr_hover.png',    pressed: 'rr_pressed.png'    },
+    trash: { rest: 'trash_rest.png', grouphover: 'trash_grouphover.png', hover: 'trash_hover.png', pressed: 'trash_pressed.png' },
   };
 
-  const makeActiveIcons = (imgMap, text) => {
-    const urls = {};
-    states.forEach(state => {
-      const canvas = document.createElement('canvas');
-      canvas.width  = imgMap.pressed.naturalWidth  || 34;
-      canvas.height = imgMap.pressed.naturalHeight || 34;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(imgMap.pressed, 0, 0);
-      ctx.fillStyle = '#2e2e2e';
-      ctx.font = `bold ${Math.floor(canvas.height * 0.55)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-      urls[state] = canvas.toDataURL();
-    });
-    return urls;
-  };
+  const src = (name, state) => imgPrefix + imgSrcs[name][state];
 
-  const createOsdBtn = (imgMap, text, tooltip, onClick) => {
-    const icons = makeIcons(imgMap, text);
+  const createImgBtn = (name, tooltip, onClick) => {
     return new OpenSeadragon.Button({
       tooltip,
-      srcRest:  icons.rest,
-      srcGroup: icons.grouphover,
-      srcHover: icons.hover,
-      srcDown:  icons.pressed,
+      srcRest:  src(name, 'rest'),
+      srcGroup: src(name, 'grouphover'),
+      srcHover: src(name, 'hover'),
+      srcDown:  src(name, 'pressed'),
       onClick
     });
   };
 
-  const setButtonActive = (btn, imgMap, text, active) => {
-    const icons = active ? makeActiveIcons(imgMap, text) : makeIcons(imgMap, text);
-    btn.imgRest.src  = icons.rest;
-    btn.imgGroup.src = icons.grouphover;
-    btn.imgHover.src = icons.hover;
-    btn.imgDown.src  = icons.pressed;
+  const setButtonActive = (btn, name, active) => {
+    btn.imgRest.src  = active ? src(name, 'pressed') : src(name, 'rest');
+    btn.imgGroup.src = active ? src(name, 'pressed') : src(name, 'grouphover');
+    btn.imgHover.src = active ? src(name, 'pressed') : src(name, 'hover');
+    btn.imgDown.src  = src(name, 'pressed');
   };
 
   const init = (viewer, drawing, mapContainer) => {
@@ -73,7 +35,6 @@ const DrawingControls = (() => {
     let btnGroup = null;
     let undoBtnOsd, redrawBtnOsd, clearBtnOsd, colorBtnOsd;
     let moveBtnOsd, drawBtnOsd;
-    let cachedImgMap = null;
     let separator = null;
 
     // === 颜色面板 ===
@@ -86,7 +47,6 @@ const DrawingControls = (() => {
     ];
     let currentSwatch = null;
 
-    // 同步初始颜色到 plugin
     drawing.setColor(COLORS[0]);
 
     const colorPanel = document.createElement('div');
@@ -121,7 +81,24 @@ const DrawingControls = (() => {
       colorPanel.appendChild(swatch);
     });
 
-    viewer.canvas.addEventListener('mousedown', () => { colorPanel.style.display = 'none'; });
+    viewer.canvas.addEventListener('mousedown',  () => { colorPanel.style.display = 'none'; });
+    viewer.canvas.addEventListener('touchstart', () => { colorPanel.style.display = 'none'; }, { passive: true });
+
+    // === 屏蔽右键菜单，绘图模式下右键退回移动模式 ===
+    document.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (drawing.isInDrawMode()) setDrawMode(false);
+    });
+
+    // === 键盘快捷键 ===
+    document.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      if (e.key === 'Escape') {
+        if (drawing.isInDrawMode()) setDrawMode(false);
+      } else if (e.key === 'Shift') {
+        setDrawMode(!drawing.isInDrawMode());
+      }
+    });
 
     // === 按钮状态 ===
     const updateButtonState = () => {
@@ -147,10 +124,10 @@ const DrawingControls = (() => {
     const setDrawMode = (drawMode) => {
       drawing.setMode(drawMode);
 
-      if (cachedImgMap) {
-        setButtonActive(moveBtnOsd, cachedImgMap, '✥', !drawMode);
-        setButtonActive(drawBtnOsd, cachedImgMap, '✎',  drawMode);
-      }
+      viewer.canvas.style.cursor = drawMode ? 'crosshair' : 'move';
+
+      setButtonActive(moveBtnOsd, 'move', !drawMode);
+      setButtonActive(drawBtnOsd, 'pen',   drawMode);
 
       [undoBtnOsd, redrawBtnOsd, clearBtnOsd, colorBtnOsd].forEach(b => {
         if (b) b.element.style.display = drawMode ? 'inline-block' : 'none';
@@ -182,12 +159,11 @@ const DrawingControls = (() => {
       [undoBtnOsd, redrawBtnOsd, clearBtnOsd, colorBtnOsd].forEach(b => {
         b.element.style.display = 'none';
       });
+      viewer.canvas.style.cursor = 'move';
       separator.style.display = 'none';
 
-      if (cachedImgMap) {
-        setButtonActive(moveBtnOsd, cachedImgMap, '✥', true);
-        setButtonActive(drawBtnOsd, cachedImgMap, '✎', false);
-      }
+      setButtonActive(moveBtnOsd, 'move', true);
+      setButtonActive(drawBtnOsd, 'pen',  false);
       updateButtonState();
     };
 
@@ -196,22 +172,26 @@ const DrawingControls = (() => {
       tryRegister();
     });
 
-    // === 预加载底图后创建按钮 ===
-    preloadImages().then(imgs => {
-      const imgMap = {};
-      states.forEach((s, i) => { imgMap[s] = imgs[i]; });
-      cachedImgMap = imgMap;
+    // === 创建按钮 ===
+    moveBtnOsd   = createImgBtn('move',  '移动模式', () => setDrawMode(false));
+    drawBtnOsd   = createImgBtn('pen',   '绘画模式', () => setDrawMode(true));
+    undoBtnOsd   = createImgBtn('rl',    '撤销',     () => { if (drawing.canUndo())   { drawing.undo();   updateButtonState(); } });
+    redrawBtnOsd = createImgBtn('rr',    '重做',     () => { if (drawing.canRedraw()) { drawing.redraw(); updateButtonState(); } });
+    clearBtnOsd  = createImgBtn('trash', '清空',     () => {
+      if ((drawing.canUndo() || drawing.canRedraw()) && confirm('确定要清空所有绘制吗？')) {
+        drawing.clear(); updateButtonState();
+      }
+    });
 
-      moveBtnOsd = createOsdBtn(imgMap, '✥', '移动模式', () => setDrawMode(false));
-      drawBtnOsd = createOsdBtn(imgMap, '✎', '绘画模式', () => setDrawMode(true));
-      undoBtnOsd   = createOsdBtn(imgMap, '↩', '撤销', () => { if (drawing.canUndo())   { drawing.undo();   updateButtonState(); } });
-      redrawBtnOsd = createOsdBtn(imgMap, '↪', '重做', () => { if (drawing.canRedraw()) { drawing.redraw(); updateButtonState(); } });
-      clearBtnOsd  = createOsdBtn(imgMap, '🗑', '清空', () => {
-        if ((drawing.canUndo() || drawing.canRedraw()) && confirm('确定要清空所有绘制吗？')) {
-          drawing.clear(); updateButtonState();
-        }
-      });
-      colorBtnOsd = createOsdBtn(imgMap, '', '选色', (e) => {
+    // 颜色按钮仍用 OSD 默认底图
+    const prefixUrl = './libs/openseadragon/images/';
+    colorBtnOsd = new OpenSeadragon.Button({
+      tooltip:  '选色',
+      srcRest:  prefixUrl + 'button_rest.png',
+      srcGroup: prefixUrl + 'button_grouphover.png',
+      srcHover: prefixUrl + 'button_hover.png',
+      srcDown:  prefixUrl + 'button_pressed.png',
+      onClick: (e) => {
         if (e?.originalEvent) e.originalEvent.stopPropagation();
         if (colorPanel.style.display === 'flex') {
           colorPanel.style.display = 'none';
@@ -225,19 +205,19 @@ const DrawingControls = (() => {
         colorPanel.style.visibility = '';
         colorPanel.style.left = (rect.left - cr.left) + 'px';
         colorPanel.style.top  = (rect.top - cr.top - panelHeight - 4) + 'px';
-      });
-
-      colorBtnOsd.element.style.position = 'absolute';
-      colorBtnOsd.element.style.left = '65px';
-      colorBtnOsd.element.style.bottom = '50px';
-      colorBtnOsd.element.appendChild(colorDot);
-
-      btnGroup = new OpenSeadragon.ButtonGroup({
-        buttons: [moveBtnOsd, drawBtnOsd, undoBtnOsd, redrawBtnOsd, clearBtnOsd, colorBtnOsd]
-      });
-
-      tryRegister();
+      }
     });
+
+    colorBtnOsd.element.style.position = 'absolute';
+    colorBtnOsd.element.style.left = '65px';
+    colorBtnOsd.element.style.bottom = '50px';
+    colorBtnOsd.element.appendChild(colorDot);
+
+    btnGroup = new OpenSeadragon.ButtonGroup({
+      buttons: [moveBtnOsd, drawBtnOsd, undoBtnOsd, redrawBtnOsd, clearBtnOsd, colorBtnOsd]
+    });
+
+    tryRegister();
   };
 
   return { init };
