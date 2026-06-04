@@ -84,14 +84,34 @@ const CdnControls = (() => {
 
   const startTest = async () => {
     console.log('[CDN测速] 开始测速...');
-    const all = await Promise.all(CDN_NODES.map(testNode));
 
-    // 过滤超时，按速度排序
-    const valid = all
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const isAuto = !saved || saved === '__auto__';
+    let firstResolved = false;
+    const results = [];
+
+    const tasks = CDN_NODES.map(node => testNode(node).then(r => {
+      results.push(r);
+
+      // auto 模式：第一个完成的节点立即生效并 resolve cdnReady，不阻塞
+      if (isAuto && !firstResolved && r.time !== Infinity) {
+        firstResolved = true;
+        activeNode = r.node;
+        console.log(`[CDN测速] 首个可用节点: ${r.node.name} (${Math.round(r.time)}ms)`);
+        _resolve({ valid: [r], timedOut: [], pending: true });
+      }
+
+      return r;
+    }));
+
+    // 后台等所有测速完成
+    await Promise.all(tasks);
+
+    const valid = results
       .filter(r => r.time !== Infinity)
       .sort((a, b) => a.time - b.time);
 
-    const timedOut = all.filter(r => r.time === Infinity);
+    const timedOut = results.filter(r => r.time === Infinity);
 
     [...valid, ...timedOut].forEach(r => {
       const ms   = r.time === Infinity ? 'timeout' : `${Math.round(r.time)}ms`;
@@ -99,14 +119,24 @@ const CdnControls = (() => {
       console.log(`[CDN测速] ${r.node.name}: ${ms}${flag}`);
     });
 
-    // 只有 auto 模式才自动切换最快节点
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if ((!saved || saved === '__auto__') && valid.length > 0) {
+    // auto 模式：全部完成后切换到最快节点
+    if (isAuto && valid.length > 0) {
       activeNode = valid[0].node;
-      console.log(`[CDN测速] 采用节点: ${activeNode.name}`);
+      console.log(`[CDN测速] 最终采用节点: ${activeNode.name}`);
     }
 
-    _resolve({ valid, timedOut });
+    // 全超时兜底
+    if (isAuto && !firstResolved && valid.length > 0) {
+      _resolve({ valid, timedOut, pending: false });
+    }
+
+    // 非 auto 模式的 cdnReady（showMap 在等它）
+    if (!isAuto) {
+      _resolve({ valid, timedOut, pending: false });
+    }
+
+    // 通知下拉更新最终结果
+    window.dispatchEvent(new CustomEvent('cdnTestComplete', { detail: { valid } }));
   };
 
   // 创建下拉并挂到 OSD TOP_LEFT 最左边
@@ -168,15 +198,17 @@ const CdnControls = (() => {
       window.reloadMap && window.reloadMap(); // 重载地图
     });
 
-    // 测速完成后填充选项
-    // 测速完成后填充选项
-    window.cdnReady.then(({ valid, timedOut }) => {
+    // auto 模式：第一个节点完成后立即解锁下拉
+    window.cdnReady.then(() => {
+      select.disabled = false;
+    });
+
+    // 全部测速完成后更新下拉选项
+    window.addEventListener('cdnTestComplete', ({ detail: { valid } }) => {
       const fastest = valid[0];
-      if (fastest) {
-        autoOpt.textContent = `[自动] ${fastest.node.name} (${Math.round(fastest.time)}ms)`;
-      } else {
-        autoOpt.textContent = '[自动] 无可用节点';
-      }
+      autoOpt.textContent = fastest
+        ? `[自动] ${fastest.node.name} (${Math.round(fastest.time)}ms)`
+        : '[自动] 无可用节点';
 
       // 清除临时的"测速中..."预占选项
       [...select.options].forEach(opt => {
@@ -197,9 +229,8 @@ const CdnControls = (() => {
       const currentSaved = localStorage.getItem(STORAGE_KEY);
       select.value = (currentSaved && currentSaved !== '__auto__') ? currentSaved : '__auto__';
 
-      select.disabled = false; // 测速完成，启用下拉
-    });
-
+      select.disabled = false;
+    }, { once: true });
 
     wrap.appendChild(select);
 
