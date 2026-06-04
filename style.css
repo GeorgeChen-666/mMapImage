@@ -64,5 +64,13 @@ dialog {
     border: none;
     border-radius: 8px;
     max-width: 90vw;
-    padding: 1.5rem;
+    padding: 1rem;
+}
+dialog h2 {
+    margin: 0;
+}
+.top-left-div {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
 }

@@ -14,18 +14,26 @@
         tileSize: 256,
         minLevel: 9,
         maxLevel: 12,
-        getTileUrl: (level, x, y) => `./${cat}/${level - 6}/${level - 6}-${x}-${y}.jpg`
+        getTileUrl: (level, x, y) => window.activeTileUrl(cat, level - 6, x, y)
       }
     });
 
+    CdnControls.initSelector(viewer);
+
     const drawing = viewer.initDrawingPlugin({ storageKey: `osd_strokes_${cat}` });
     const mapContainer = document.getElementById('zoomMap');
-
     DrawingControls.init(viewer, drawing, mapContainer);
   };
 
   const modal = document.getElementById('modal-1');
   modal.showModal();
-  document.getElementById('btnGoTo1').addEventListener('click', () => { modal.close(); showMap(); });
-  document.getElementById('btnGoTo2').addEventListener('click', () => { modal.close(); showMap('map2'); });
+
+  const onSelect = (cat) => {
+    modal.close();
+    CdnControls.startTest();          // ← 点击后才开始测速
+    window.cdnReady.then(() => showMap(cat));
+  };
+
+  document.getElementById('btnGoTo1').addEventListener('click', () => onSelect('map'));
+  document.getElementById('btnGoTo2').addEventListener('click', () => onSelect('map2'));
 })();
