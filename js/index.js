@@ -1,6 +1,13 @@
 // js/index.js
 (() => {
+  const STORAGE_KEY = 'cdn_selected_node';
+
   const showMap = (cat = 'map') => {
+    if (window._viewer) {
+      window._viewer.destroy();
+      window._viewer = null;
+    }
+
     const viewer = OpenSeadragon({
       id: 'zoomMap',
       prefixUrl: './libs/openseadragon/images/',
@@ -18,6 +25,8 @@
       }
     });
 
+    window._viewer = viewer;
+
     CdnControls.initSelector(viewer);
 
     const drawing = viewer.initDrawingPlugin({ storageKey: `osd_strokes_${cat}` });
@@ -25,13 +34,27 @@
     DrawingControls.init(viewer, drawing, mapContainer);
   };
 
+  window.reloadMap = () => {
+    if (window._currentCat) showMap(window._currentCat);
+  };
+
   const modal = document.getElementById('modal-1');
   modal.showModal();
 
   const onSelect = (cat) => {
     modal.close();
-    CdnControls.startTest();          // ← 点击后才开始测速
-    window.cdnReady.then(() => showMap(cat));
+    window._currentCat = cat;
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && saved !== '__auto__') {
+      // 有手动选择，不阻塞，异步测速
+      CdnControls.startTest();
+      showMap(cat);
+    } else {
+      // 自动模式，等测速完成再显示
+      CdnControls.startTest();
+      window.cdnReady.then(() => showMap(cat));
+    }
   };
 
   document.getElementById('btnGoTo1').addEventListener('click', () => onSelect('map'));

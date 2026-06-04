@@ -28,22 +28,10 @@ const CdnControls = (() => {
         `https://jsd.duolaa.top/gh/GeorgeChen-666/mMapImage@master/${cat}/${level}/${level}-${x}-${y}.jpg`
     },
     {
-      name: 'fastly',
-      testUrl: 'https://fastly.jsdelivr.net/gh/GeorgeChen-666/mMapImage@master/map/3/3-0-0.jpg',
-      getTileUrl: (cat, level, x, y) =>
-        `https://fastly.jsdelivr.net/gh/GeorgeChen-666/mMapImage@master/${cat}/${level}/${level}-${x}-${y}.jpg`
-    },
-    {
-      name: 'gcore',
-      testUrl: 'https://gcore.jsdelivr.net/gh/GeorgeChen-666/mMapImage@master/map/3/3-0-0.jpg',
+      name: 'jsdelivr',
+      testUrl: 'https://cdn.jsdelivr.net/gh/GeorgeChen-666/mMapImage@master/map/3/3-0-0.jpg',
       getTileUrl: (cat, level, x, y) =>
         `https://gcore.jsdelivr.net/gh/GeorgeChen-666/mMapImage@master/${cat}/${level}/${level}-${x}-${y}.jpg`
-    },
-    {
-      name: 'cloudflare',
-      testUrl: 'https://testingcf.jsdelivr.net/gh/GeorgeChen-666/mMapImage@master/map/3/3-0-0.jpg',
-      getTileUrl: (cat, level, x, y) =>
-        `https://testingcf.jsdelivr.net/gh/GeorgeChen-666/mMapImage@master/${cat}/${level}/${level}-${x}-${y}.jpg`
     },
     {
       name: 'bcdn',
@@ -64,19 +52,15 @@ const CdnControls = (() => {
         `https://ghfast.top/https://raw.githubusercontent.com/GeorgeChen-666/mMapImage/master/${cat}/${level}/${level}-${x}-${y}.jpg`
     },
     {
-      name: 'mirror.ghproxy',
-      testUrl: 'https://mirror.ghproxy.com/https://raw.githubusercontent.com/GeorgeChen-666/mMapImage/master/map/3/3-0-0.jpg',
-      getTileUrl: (cat, level, x, y) =>
-        `https://mirror.ghproxy.com/https://raw.githubusercontent.com/GeorgeChen-666/mMapImage/master/${cat}/${level}/${level}-${x}-${y}.jpg`
-    },
-    {
       name: 'local',
       testUrl: './map/3/3-0-0.jpg',
       getTileUrl: (cat, level, x, y) =>
         `./${cat}/${level}/${level}-${x}-${y}.jpg`
     },
   ];
-  let activeNode = CDN_NODES[0]; // 默认 local
+
+  const STORAGE_KEY = 'cdn_selected_node';
+  let activeNode = CDN_NODES[0];
 
   // 供 index.js 的 OSD getTileUrl 调用
   window.activeTileUrl = (cat, level, x, y) => activeNode.getTileUrl(cat, level, x, y);
@@ -115,7 +99,9 @@ const CdnControls = (() => {
       console.log(`[CDN测速] ${r.node.name}: ${ms}${flag}`);
     });
 
-    if (valid.length > 0) {
+    // 只有 auto 模式才自动切换最快节点
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if ((!saved || saved === '__auto__') && valid.length > 0) {
       activeNode = valid[0].node;
       console.log(`[CDN测速] 采用节点: ${activeNode.name}`);
     }
@@ -125,6 +111,12 @@ const CdnControls = (() => {
 
   // 创建下拉并挂到 OSD TOP_LEFT 最左边
   const initSelector = (viewer) => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && saved !== '__auto__') {
+      const found = CDN_NODES.find(n => n.name === saved);
+      if (found) activeNode = found;
+    }
+
     const wrap = document.createElement('div');
     wrap.style.cssText = `
       display: inline-block;
@@ -134,6 +126,7 @@ const CdnControls = (() => {
 
     const select = document.createElement('select');
     select.className = 'cdn_dropdown';
+    select.disabled = true; // 测速期间禁用
     select.style.cssText = `
       background: rgba(30,30,30,0.85);
       color: #fff;
@@ -152,18 +145,30 @@ const CdnControls = (() => {
     autoOpt.textContent = '[自动] 测速中...';
     select.appendChild(autoOpt);
 
+    // 如果有 saved，先立即加一个选项显示当前选择
+    if (saved && saved !== '__auto__') {
+      const preOpt = document.createElement('option');
+      preOpt.value = saved;
+      preOpt.textContent = `${saved}  (测速中...)`;
+      select.appendChild(preOpt);
+      select.value = saved;
+    }
+
     select.addEventListener('change', () => {
       if (select.value === '__auto__') {
-        // 切回自动：用测速最快节点
+        localStorage.setItem(STORAGE_KEY, '__auto__');
         window.cdnReady.then(({ valid }) => {
           if (valid.length > 0) activeNode = valid[0].node;
         });
       } else {
         activeNode = CDN_NODES.find(n => n.name === select.value);
+        localStorage.setItem(STORAGE_KEY, select.value);
         console.log(`[CDN] 手动切换节点: ${activeNode.name}`);
       }
+      window.reloadMap && window.reloadMap(); // 重载地图
     });
 
+    // 测速完成后填充选项
     // 测速完成后填充选项
     window.cdnReady.then(({ valid, timedOut }) => {
       const fastest = valid[0];
@@ -173,6 +178,13 @@ const CdnControls = (() => {
         autoOpt.textContent = '[自动] 无可用节点';
       }
 
+      // 清除临时的"测速中..."预占选项
+      [...select.options].forEach(opt => {
+        if (opt !== autoOpt && opt.textContent.includes('测速中...')) {
+          select.removeChild(opt);
+        }
+      });
+
       // 只显示有效节点，按速度排序
       valid.forEach(r => {
         const opt = document.createElement('option');
@@ -181,15 +193,13 @@ const CdnControls = (() => {
         select.appendChild(opt);
       });
 
-      // 超时节点置灰放最后
-      timedOut.forEach(r => {
-        const opt = document.createElement('option');
-        opt.value = r.node.name;
-        opt.textContent = `${r.node.name}  (timeout)`;
-        opt.style.color = '#888';
-        select.appendChild(opt);
-      });
+      // 恢复选中状态
+      const currentSaved = localStorage.getItem(STORAGE_KEY);
+      select.value = (currentSaved && currentSaved !== '__auto__') ? currentSaved : '__auto__';
+
+      select.disabled = false; // 测速完成，启用下拉
     });
+
 
     wrap.appendChild(select);
 
