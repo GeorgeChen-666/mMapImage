@@ -71,6 +71,9 @@ dialog h2 {
 }
 .top-left-div {
     display: flex;
-    flex-direction: row-reverse;
+    flex-direction: column-reverse;
     align-items: center;
+}
+.cdn_dropdown {
+    margin: 5px 0;
 }
