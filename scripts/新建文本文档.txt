@@ -1,0 +1,1 @@
+node index.js convert C:\Users\GeorgeChen\Downloads\whole-map-flat.jpg  -o ./output  -f jpg  --width 12800  --height 8704

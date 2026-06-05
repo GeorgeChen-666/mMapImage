@@ -1,4 +1,3 @@
-// js/osd-drawing-plugin.js
 (function (OpenSeadragon) {
   if (!OpenSeadragon) throw new Error('OpenSeadragon is required');
 
@@ -6,11 +5,18 @@
   const svgNS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'osd_drawing_strokes';
 
+  // ======================
+  // 🔥 只加这个：采样频率
+  // 1 = 全部保存
+  // 2 = 每2个点存1个
+  // 3 = 每3个点存1个（1/3密度）
+  // ======================
+  const SAMPLE_RATE = 5;
+
   OpenSeadragon.Viewer.prototype.initDrawingPlugin = function (options = {}) {
     const viewer = this;
     const storageKey = options.storageKey || STORAGE_KEY;
 
-    // === SVG overlay ===
     const svg = document.createElementNS(svgNS, 'svg');
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     svg.setAttribute('version', '1.1');
@@ -20,7 +26,6 @@
     svg.setAttribute('height', '100%');
     svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;';
 
-    // === 状态 ===
     let isDrawMode = false;
     let isDrawing = false;
     let currentPath = null;
@@ -29,7 +34,9 @@
     let strokes = [];
     let undoStack = [];
 
-    // === 持久化 ===
+    // 🔥 只加这个计数器
+    let _sampleCounter = 0;
+
     const saveToStorage = () => {
       try { localStorage.setItem(storageKey, JSON.stringify(strokes)); } catch (e) {}
     };
@@ -56,7 +63,6 @@
       return path;
     };
 
-    // === 坐标转换 ===
     const round = (n) => Math.round(n * 1000) / 1000;
     const toSVGCoords = (clientX, clientY) => {
       const rect = viewer.canvas.getBoundingClientRect();
@@ -70,7 +76,6 @@
       };
     };
 
-    // === 更新按钮状态 ===
     const updateButtonStates = () => {
       if (window._drawingPluginCallbacks) {
         window._drawingPluginCallbacks.updateUndoButton?.();
@@ -79,7 +84,6 @@
       }
     };
 
-    // === 加载历史笔迹 ===
     viewer.addHandler('open', () => {
       const bounds = viewer.world.getHomeBounds();
       viewer.addOverlay(svg, new OpenSeadragon.Rect(bounds.x, bounds.y, bounds.width, bounds.height));
@@ -89,7 +93,6 @@
       updateButtonStates();
     });
 
-    // === 事件辅助 ===
     const getPoint = (e) => {
       if (e.touches && e.touches.length > 0) {
         return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
@@ -97,12 +100,13 @@
       return { clientX: e.clientX, clientY: e.clientY };
     };
 
-    // === 绘图事件 ===
     const startDrawing = (e) => {
       if (!isDrawMode) return;
       e.preventDefault();
       isDrawing = true;
       currentPoints = [];
+      _sampleCounter = 0; // 🔥 重置计数
+
       const { clientX, clientY } = getPoint(e);
       const p = toSVGCoords(clientX, clientY);
       currentPoints.push(p);
@@ -117,14 +121,27 @@
       svg.appendChild(currentPath);
     };
 
+    // ================================
+    // 🔥 唯一修改：moveDrawing 采样控制
+    // ================================
     const moveDrawing = (e) => {
       if (!isDrawing || !currentPath) return;
       e.preventDefault();
+
       const { clientX, clientY } = getPoint(e);
       const p = toSVGCoords(clientX, clientY);
-      currentPoints.push(p);
-      const d = currentPoints.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x},${pt.y}`).join(' ');
+
+      // 实时绘制（不变）
+      const tempPoints = [...currentPoints, p];
+      const d = tempPoints.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt.x},${pt.y}`).join(' ');
       currentPath.setAttribute('d', d);
+
+      // 🔥 只在这里控制：每 SAMPLE_RATE 次存一次
+      _sampleCounter++;
+      if (_sampleCounter >= SAMPLE_RATE) {
+        currentPoints.push(p);
+        _sampleCounter = 0;
+      }
     };
 
     const stopDrawing = () => {
@@ -141,24 +158,21 @@
       currentPath = null;
     };
 
-    // mouse
-    svg.addEventListener('mousedown',  startDrawing);
-    svg.addEventListener('mousemove',  moveDrawing);
-    svg.addEventListener('mouseup',    stopDrawing);
+    svg.addEventListener('mousedown', startDrawing);
+    svg.addEventListener('mousemove', moveDrawing);
+    svg.addEventListener('mouseup', stopDrawing);
     svg.addEventListener('mouseleave', stopDrawing);
 
-    // touch
-    svg.addEventListener('touchstart',  startDrawing, { passive: false });
-    svg.addEventListener('touchmove',   moveDrawing,  { passive: false });
-    svg.addEventListener('touchend',    stopDrawing);
+    svg.addEventListener('touchstart', startDrawing, { passive: false });
+    svg.addEventListener('touchmove', moveDrawing, { passive: false });
+    svg.addEventListener('touchend', stopDrawing);
     svg.addEventListener('touchcancel', stopDrawing);
 
-    // === 公开 API ===
     const plugin = {
       setMode(drawMode) {
         isDrawMode = drawMode;
         viewer.setMouseNavEnabled(!isDrawMode);
-        viewer.gestureSettingsTouch.dragToPan   = !drawMode;
+        viewer.gestureSettingsTouch.dragToPan = !drawMode;
         viewer.gestureSettingsTouch.pinchToZoom = !drawMode;
         svg.style.pointerEvents = isDrawMode ? 'auto' : 'none';
       },
@@ -189,7 +203,7 @@
         updateButtonStates();
       },
       isInDrawMode() { return isDrawMode; },
-      canUndo()   { return strokes.length > 0; },
+      canUndo() { return strokes.length > 0; },
       canRedraw() { return undoStack.length > 0; }
     };
 

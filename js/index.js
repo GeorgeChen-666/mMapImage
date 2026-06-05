@@ -2,7 +2,7 @@
 (() => {
   const STORAGE_KEY = 'cdn_selected_node';
 
-  const showMap = (cat = 'map') => {
+  const showMap = (cat = 'map1') => {
     if (window._viewer) {
       window._viewer.destroy();
       window._viewer = null;
@@ -57,6 +57,8 @@
     }
   };
 
-  document.getElementById('btnGoTo1').addEventListener('click', () => onSelect('map'));
+  document.getElementById('btnGoTo1').addEventListener('click', () => onSelect('map1'));
   document.getElementById('btnGoTo2').addEventListener('click', () => onSelect('map2'));
+  document.getElementById('btnGoTo3').addEventListener('click', () => onSelect('map3'));
+  document.getElementById('btnGoTo4').addEventListener('click', () => onSelect('map4'));
 })();
